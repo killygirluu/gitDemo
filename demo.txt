@@ -1,0 +1,155 @@
+# 晨考
+
+1. 描述什么是池化机制
+
+  > 对于资源的重复利用(reuse)
+  > 线程池就是对于线程的重复使用
+
+2. 描述Runnable与Callable的区别
+
+  > Runnable没有返回值
+  > Callable有返回值，允许抛异常
+  > 不管是Runnable还是Callable，都可以结合Future使用
+  > 如果Runnable结合Future使用，等待Runnable的过程结束
+  > 如果Callable结合Future使用，等待Callable的结果
+
+3. 画图描述线程状态
+
+  > 参考`01-线程状态.png`
+
+# 多线程
+
+## 锁-读写锁
+
+> 对于一个资源来讲，可以同时读，但不能同时写，也不能一边读一边写
+> 假如使用重入锁ReentrantLock的话，读的时候，效率比较低，因为第一个读完之后，第二才能读
+> 读写锁，就能保证可以同时读，不能同时写，也不能一边读一边写
+> 原因是因为有2把锁，一把读锁，一把写锁，并且读锁和写锁之间会有交互的
+
+> 不能直接通过synchronized关键字，修饰读锁或写锁
+> 因为synchronized关键字会判断这把有没有被占用
+> 在其他的线程中，对读锁已经占用了，那么其他线程再使用synchronized关键字修饰这把读锁时，需要等待
+
+- ReadCallable.java
+
+```java
+package com.mobiletrain;
+
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+public class ReadCallable implements Callable<Object> {
+    // 读任务要操作的资源
+    private List<String> resource;
+
+    // 因为要保证不能一边读一边写，所以需要为所有的读任务和写任务同时使用一对读写锁
+    private ReentrantReadWriteLock lock;
+
+    // 为了保证读任务和写任务，操作的是同一个资源
+    // 需要别人把这个资源创建好之后，传给读任务和写任务
+    // 可以通过有参构造，或setter传入
+
+    // 为了保证读任务和写任务，操作的是同一对读写锁
+    // 需要别人把这一对锁创建好之后，传给读任务和写任务
+    // 可以通过有参构造，或setter传入
+    public ReadCallable(List<String> resource, ReentrantReadWriteLock lock) {
+        this.resource = resource;
+        this.lock = lock;
+    }
+
+    @Override
+    public Object call() throws Exception {
+        // 在读之前，给读锁加锁
+        // 在读之后，给读锁解锁
+        // 因为有可能会出现异常，如果显式调用lock和unlock需要手动处理异常
+        try {
+            lock.readLock().lock();
+            Thread.sleep(1000);
+            System.out.println(resource);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return null;
+    }
+}
+```
+
+- WriteCallable.java
+
+```java
+package com.mobiletrain;
+
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+public class WriteCallable implements Callable<Object> {
+    // 写任务要操作的资源
+    private List<String> resource;
+
+    // 因为要保证不能一边读一边写，所以需要为所有的读任务和写任务同时使用一对读写锁
+    private ReentrantReadWriteLock lock;
+
+    // 为了保证读任务和写任务，操作的是同一个资源
+    // 需要别人把这个资源创建好之后，传给读任务和写任务
+    // 可以通过有参构造，或setter传入
+
+    // 为了保证读任务和写任务，操作的是同一对读写锁
+    // 需要别人把这一对锁创建好之后，传给读任务和写任务
+    // 可以通过有参构造，或setter传入
+    public WriteCallable(List<String> resource, ReentrantReadWriteLock lock) {
+        this.resource = resource;
+        this.lock = lock;
+    }
+
+    @Override
+    public Object call() throws Exception {
+        // 在写之前，为写锁加锁
+        // 在写之后，为写锁解锁
+        // 因为如果手动操作lock与unlock方法，需要关心异常
+        try {
+            lock.writeLock().lock();
+            Thread.sleep(1000);
+            resource.add("1");
+        } finally {
+            lock.writeLock().unlock();
+        }
+        return null;
+    }
+}
+```
+
+- ReadWriteLockPractice.java
+
+```java
+package com.mobiletrain;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+public class ReadWriteLockPractice {
+    public static void main(String[] args) {
+        ExecutorService threadPool = Executors.newFixedThreadPool(20);
+        List<String> resource = new ArrayList<>();
+        ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
+        // 创建出2个写任务
+        for (int i = 0; i < 2; ++i) {
+            WriteCallable writeTask = new WriteCallable(resource, lock);
+            threadPool.submit(writeTask);
+        }
+
+        // 创建出18个读任务
+        for (int i = 0; i < 18; ++i) {
+            ReadCallable readTask = new ReadCallable(resource, lock);
+            threadPool.submit(readTask);
+        }
+
+        threadPool.shutdown();
+    }
+}
+```
