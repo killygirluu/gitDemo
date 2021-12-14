@@ -3,8 +3,7 @@
 1. 描述什么是池化机制
   <span style='color:red;background:背景颜色;font-size:文字大小;'>对于资源的重复利用(reuse)</span>
 
-  <span style='color:red;background:背景颜色;font-size:文字大小;'>线程池就是对于线程的重复使用
-  </span>
+  <span style='color:red;background:背景颜色;font-size:文字大小;'>线程池就是对于线程的重复使用</span>
 
 2. 描述Runnable与Callable的区别
 
